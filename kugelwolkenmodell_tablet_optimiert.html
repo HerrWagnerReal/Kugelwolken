@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kugelwolkenmodell</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f4f7fb; color: #1f2937; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 300px 1fr; }
+    .sidebar { background: #fff; border-right: 1px solid #dbe3ef; padding: 24px; box-shadow: 2px 0 10px rgba(0,0,0,.04); }
+    .sidebar h1 { margin: 0 0 10px; font-size: 1.55rem; }
+    .sidebar p { color: #4b5563; line-height: 1.5; margin: 0 0 18px; }
+    .controls { display: grid; gap: 12px; margin-bottom: 18px; }
+    button { border: none; border-radius: 12px; padding: 14px 16px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(1px); }
+    .green-btn { background: #34c759; color: #fff; }
+    .blue-btn { background: #3b82f6; color: #fff; }
+    .red-btn { background: #ef4444; color: #fff; }
+    .nucleus-btn { background: #e5e7eb; color: #111827; }
+    .rotate-btn { background: #8b5cf6; color: #fff; }
+    .mode-btn { background: #e5e7eb; color: #111827; }
+    .reset-btn { background: #111827; color: #fff; }
+    .legend { padding: 14px; background: #f8fafc; border-radius: 14px; border: 1px solid #e5e7eb; font-size: .95rem; line-height: 1.55; }
+    .legend strong { display: block; margin-bottom: 8px; }
+
+    .main { padding: 24px; }
+    .task-banner { margin-bottom: 16px; padding: 14px 18px; background: #dbeafe; border: 2px solid #93c5fd; border-radius: 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .task-info { display: flex; align-items: center; gap: 16px; }
+    .task-symbol { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .task-meta { font-size: .95rem; color: #374151; line-height: 1.5; }
+    .task-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .task-btn { background: #2563eb; color: #fff; }
+    .check-btn { background: #059669; color: #fff; }
+    .task-feedback { width: 100%; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.75); border: 1px solid #bfdbfe; font-size: .95rem; line-height: 1.5; }
+    .task-feedback.success { background: #ecfdf5; border-color: #86efac; color: #166534; }
+    .task-feedback.error { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+    .task-picker { width: 100%; display: grid; gap: 6px; }
+    .task-picker-row { display: grid; gap: 6px; grid-template-columns: repeat(18, minmax(0, 1fr)); }
+    .element-btn { min-height: 34px; padding: 6px 4px; border-radius: 10px; font-size: .82rem; font-weight: 700; background: #fff; color: #1f2937; border: 1px solid #93c5fd; box-shadow: none; }
+    .element-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .element-spacer { min-height: 34px; }
+
+    .nucleus-choice {
+      cursor: grab;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #000;
+      border: 2px solid #111;
+      color: #fff;
+      font-size: 8px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      user-select: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,.18);
+    }
+    .nucleus-choice.active {
+      outline: 3px solid rgba(37,99,235,.35);
+      outline-offset: 2px;
+    }
+
+    .element-btn:disabled { opacity: .8; cursor: default; }
+    #nucleusPicker { width: 100%; display: grid; gap: 6px; }
+
+    .workspace-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+    .workspace-header h2 { margin: 0; font-size: 1.25rem; }
+    .hint { color: #4b5563; font-size: .95rem; }
+    #workspace { position: relative; width: 100%; height: calc(100vh - 64px - 180px); min-height: 540px; background: linear-gradient(0deg, rgba(255,255,255,.94), rgba(255,255,255,.94)), linear-gradient(90deg, #e5e7eb 1px, transparent 1px), linear-gradient(#e5e7eb 1px, transparent 1px); background-size: auto, 30px 30px, 30px 30px; border: 2px dashed #b8c4d6; border-radius: 20px; overflow: hidden; }
+
+    .cloud { position: absolute; width: 84px; height: 84px; border-radius: 50%; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 4px rgba(255,255,255,.45), 0 8px 18px rgba(0,0,0,.15); cursor: grab; }
+    .cloud:active { cursor: grabbing; }
+    
+    
+    .palette-nucleus {
+      position: relative;
+      width: 22px;
+      height: 22px;
+      margin: 10px auto;
+      cursor: grab;
+      border-radius: 50%;
+      background: #000;
+      border: 2px solid #111;
+      box-shadow: 0 4px 10px rgba(0,0,0,.2);
+    }
+
+
+    .palette-cloud, .nucleus-choice {
+      -webkit-user-drag: none;
+    }
+
+    .palette-cloud {
+      position: relative;
+      width: 62px;
+      height: 62px;
+      margin: 4px auto;
+      cursor: grab;
+      touch-action: none;
+      box-shadow: inset 0 0 0 3px rgba(255,255,255,.45), 0 6px 12px rgba(0,0,0,.14);
+    }
+
+    .cloud.green { background: radial-gradient(circle at 30% 30%, #7df09a, #2fa34b); }
+    .cloud.blue { background: radial-gradient(circle at 30% 30%, #8dc1ff, #2d6cdf); }
+    .cloud.red { background: radial-gradient(circle at 30% 30%, #ff9a9a, #d93434); }
+    .cloud.nucleus { width: 20px; height: 20px; background: #000; border: 2px solid #111; box-shadow: none; color: #fff; font-size: 8px; font-weight: 700; z-index: 1000; }
+    .cloud.selected, .bond-cloud.selected { outline: 4px solid rgba(17,24,39,.25); outline-offset: 3px; }
+    .bond-cloud { position: absolute; height: 64px; border-radius: 999px; background: radial-gradient(circle at 30% 30%, #ff9a9a, #d93434); box-shadow: inset 0 0 0 4px rgba(255,255,255,.35), 0 8px 18px rgba(0,0,0,.12); transform-origin: center center; cursor: pointer; z-index: 2; }
+    #trash { position: absolute; right: 20px; bottom: 20px; width: 80px; height: 80px; border-radius: 16px; background: #111827; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 6px 14px rgba(0,0,0,.25); opacity: .85; z-index: 2000; }
+
+    .selection-rotate-handle {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid #8b5cf6;
+      background: #ffffff;
+      color: #8b5cf6;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      box-shadow: 0 4px 10px rgba(0,0,0,.12);
+      cursor: pointer;
+      z-index: 3000;
+      user-select: none;
+    }
+    .selection-rotate-handle:hover {
+      transform: scale(1.05);
+    }
+
+    .selection-duplicate-handle {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid #059669;
+      background: #ffffff;
+      color: #059669;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      box-shadow: 0 4px 10px rgba(0,0,0,.12);
+      cursor: pointer;
+      z-index: 3000;
+      user-select: none;
+    }
+    .selection-duplicate-handle:hover {
+      transform: scale(1.05);
+    }
+
+    .touch-drag-preview {
+      position: absolute;
+      pointer-events: none;
+      z-index: 4000;
+      opacity: 0.9;
+    }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { border-right: none; border-bottom: 1px solid #dbe3ef; }
+      #workspace { height: 70vh; }
+    }
+  
+/* ===== Tablet Optimierungen ===== */
+@media (pointer: coarse) {
+
+  body {
+    touch-action: manipulation;
+  }
+
+  .sidebar {
+    width: 340px;
+  }
+
+  button {
+    padding: 18px 18px;
+    font-size: 1.1rem;
+  }
+
+  .palette-cloud {
+    width: 82px;
+    height: 82px;
+  }
+
+  .cloud {
+    width: 96px;
+    height: 96px;
+  }
+
+  .cloud.nucleus {
+    width: 26px;
+    height: 26px;
+    font-size: 10px;
+  }
+
+  .nucleus-choice {
+    width: 34px;
+    height: 34px;
+    font-size: 11px;
+  }
+
+  .task-picker-row {
+    gap: 10px;
+  }
+
+  #workspace {
+    touch-action: none;
+  }
+
+  .selection-rotate-handle,
+  .selection-duplicate-handle {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+  }
+
+  #trash {
+    width: 96px;
+    height: 96px;
+    font-size: 34px;
+  }
+}
+
+</style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>Kugelwolkenmodell</h1>
+      <p>Erzeuge Kugelwolken aus dem Vorrat und baue Atome oder Moleküle per Drag-and-drop.</p>
+      <div class="controls">
+        <div class="cloud green palette-cloud" draggable="true" data-color="green" title="Grüne Kugelwolke"></div>
+        <div class="cloud blue palette-cloud" draggable="true" data-color="blue" title="Blaue Kugelwolke"></div>
+        <div class="cloud red palette-cloud" draggable="true" data-color="red" title="Rote Kugelwolke"></div>
+        
+        <button class="mode-btn" id="moleculeModeBtn">Molekülmodus: aus</button>
+                        <button class="reset-btn" id="clearBtn">Alle löschen</button>
+      </div>
+      <div class="legend">
+        <strong>Bedienung</strong>
+        Doppelklick auf eine Kugelwolke löscht sie.<br>
+        Doppelklick auf den Atomkern dupliziert das Atom.<br>
+        Doppelklick auf eine Bindung trennt sie.<br>
+        Im Molekülmodus bilden überlappende blaue Kugelwolken Bindungen.<br>
+        Die Entf-Taste löscht die markierte Auswahl.<br>
+        Das Drehsymbol rechts an der Auswahl dreht das gewählte Atommodell.<br>
+        „Auswahl duplizieren“ kopiert das gewählte Atommodell.
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="task-banner">
+        <div class="task-info">
+          <div class="task-symbol" id="taskSymbol">?</div>
+          <div class="task-meta" id="taskDetails">Klicke auf „Neue Aufgabe“.</div>
+        </div>
+        <div class="task-actions">
+          <button class="task-btn" id="newTaskBtn">Atom-Aufgabe</button>
+          <button class="task-btn" id="newMoleculeTaskBtn">Molekül-Aufgabe</button>
+          <button class="check-btn" id="checkTaskBtn">Lösung prüfen</button>
+        </div>
+        <div class="task-feedback" id="taskFeedback">Lege ein Atommodell und prüfe dann die Lösung.</div>
+        <div class="task-meta"><strong>Kernauswahl:</strong> Wähle hier das Symbol für neue Atomkerne. Die Aufgabe bleibt dabei unverändert.</div>
+        <div class="task-picker" id="nucleusPicker"></div>
+        
+      </div>
+
+      <div class="workspace-header">
+        <h2>Arbeitsfläche</h2>
+        <div class="hint">Tipp: Der Papierkorb löscht freie Kugelwolken, ganze Atome oder Bindungen.</div>
+      </div>
+      <div id="workspace"><div id="trash">🗑</div><div id="duplicateHandle" class="selection-duplicate-handle" title="Auswahl duplizieren">⧉</div><div id="rotateHandle" class="selection-rotate-handle" title="Auswahl drehen">↻</div></div>
+    </main>
+  </div>
+
+  <script>
+    const workspace = document.getElementById('workspace');
+    const trash = document.getElementById('trash');
+    const buttons = document.querySelectorAll('.controls button[data-color]');
+    const nucleusBtn = document.getElementById('nucleusBtn');
+    const moleculeModeBtn = document.getElementById('moleculeModeBtn');
+            const clearBtn = document.getElementById('clearBtn');
+    const rotateHandle = document.getElementById('rotateHandle');
+    const duplicateHandle = document.getElementById('duplicateHandle');
+    const taskSymbol = document.getElementById('taskSymbol');
+    const taskDetails = document.getElementById('taskDetails');
+    const taskFeedback = document.getElementById('taskFeedback');
+    const taskPicker = document.getElementById('taskPicker');
+    const newTaskBtn = document.getElementById('newTaskBtn');
+    const checkTaskBtn = document.getElementById('checkTaskBtn');
+    const nucleusPicker = document.getElementById('nucleusPicker');
+
+    const newMoleculeTaskBtn = document.getElementById('newMoleculeTaskBtn');
+    let taskMode = 'atom';
+
+    const MOLECULE_TASKS = [
+      { formula: 'H₂', element: 'H', bonds: 1, name: 'Wasserstoffmolekül' },
+      { formula: 'O₂', element: 'O', bonds: 2, name: 'Sauerstoffmolekül' },
+      { formula: 'N₂', element: 'N', bonds: 3, name: 'Stickstoffmolekül' },
+      { formula: 'F₂', element: 'F', bonds: 1, name: 'Fluormolekül' },
+      { formula: 'Cl₂', element: 'Cl', bonds: 1, name: 'Chlormolekül' }
+    ];
+
+    function setMoleculeTask(task) {
+      taskMode = 'molecule';
+      currentMoleculeTask = task;
+      currentTask = null;
+      taskSymbol.textContent = task.formula;
+      taskDetails.innerHTML = `<strong>${task.name}</strong><br>Baue ein Elementmolekül aus zwei ${task.element}-Atomen.<br>`;
+      document.querySelectorAll('.element-btn').forEach(btn => btn.classList.remove('active'));
+      setFeedback('Baue das Molekül und prüfe dann die Lösung.');
+    }
+
+    function createRandomMoleculeTask() {
+      const task = MOLECULE_TASKS[Math.floor(Math.random() * MOLECULE_TASKS.length)];
+      setMoleculeTask(task);
+    }
+
+    function checkMoleculeSolution() {
+      if (!currentMoleculeTask) {
+        setFeedback('Keine Molekülaufgabe gewählt.', 'error');
+        return;
+      }
+
+      const groupsList = Array.from(groups.values()).filter(g => g.nucleus && g.nucleus.isConnected);
+      if (groupsList.length !== 2) {
+        setFeedback('Ein Elementmolekül muss aus genau zwei Atomen bestehen.', 'error');
+        return;
+      }
+
+      const nucleiSymbols = groupsList.map(g => (g.nucleus.textContent || '').trim());
+      if (!nucleiSymbols.every(s => s === currentMoleculeTask.element)) {
+        setFeedback('Die Atomsorte im Molekül stimmt nicht.', 'error');
+        return;
+      }
+
+      const pairKey = groupsList.map(g => g.nucleus.dataset.nucleusId).sort().join('-');
+      const bondCount = pairBondCounts.get(pairKey) || 0;
+
+      const expectedTask = ELEMENTS.find(el => el.symbol === currentMoleculeTask.element);
+      if (!expectedTask) {
+        setFeedback('Die Molekülaufgabe ist unvollständig.', 'error');
+        return;
+      }
+
+      let expectedCenter = 'red';
+      if (expectedTask.period === 3) expectedCenter = 'green';
+      if (expectedTask.period === 1) expectedCenter = expectedTask.atomicNumber === 1 ? 'blue' : 'red';
+
+      let valence = expectedTask.group;
+      let expectedOuter = [];
+      const singles = Math.min(valence, 4);
+      for (let i = 0; i < singles; i += 1) expectedOuter.push('blue');
+      let remaining = valence - singles;
+      for (let i = 0; i < remaining; i += 1) expectedOuter[i] = 'red';
+
+      let removableBlueCount = bondCount;
+      const adjustedOuter = [...expectedOuter];
+      for (let i = adjustedOuter.length - 1; i >= 0 && removableBlueCount > 0; i -= 1) {
+        if (adjustedOuter[i] === 'blue') {
+          adjustedOuter.splice(i, 1);
+          removableBlueCount -= 1;
+        }
+      }
+
+      if (removableBlueCount > 0) {
+        setFeedback('Die Anzahl der Bindungen passt nicht zu den verfügbaren bindenden Kugelwolken.', 'error');
+        return;
+      }
+
+      const expectedVisibleOuter = adjustedOuter.sort().join('|');
+
+      for (const group of groupsList) {
+        const visibleClouds = group.clouds.filter(cloud => cloud && cloud.isConnected && cloud.style.visibility !== 'hidden');
+        const centerCloud = visibleClouds.find(cloud => cloud.dataset.groupIndex === '0');
+
+        if (!centerCloud) {
+          setFeedback('Bei mindestens einem Atom fehlt die Zentrumswolke.', 'error');
+          return;
+        }
+
+        if (centerCloud.dataset.color !== expectedCenter) {
+          setFeedback('Mindestens ein Atom hat die falsche Zentrumswolke.', 'error');
+          return;
+        }
+
+        const outerColors = visibleClouds
+          .filter(cloud => cloud.dataset.groupIndex !== '0')
+          .map(cloud => cloud.dataset.color)
+          .sort()
+          .join('|');
+
+        if (outerColors !== expectedVisibleOuter) {
+          setFeedback('Mindestens ein Atom ist nicht vollständig korrekt aufgebaut.', 'error');
+          return;
+        }
+      }
+
+      if (bondCount !== currentMoleculeTask.bonds) {
+        setFeedback('Die Anzahl der Bindungen stimmt noch nicht.', 'error');
+        return;
+      }
+
+      setFeedback('Richtig! Das Molekül stimmt zur Aufgabe.', 'success');
+    }
+
+
+    const CLOUD_SIZE = 84;
+    const NUCLEUS_SIZE = 20;
+    const CLOUD_SPACING = 84;
+    const MAX_GROUP_SIZE = 5;
+    const MAX_BONDS_PER_PAIR = 3;
+    const SNAP_DISTANCE_TO_NUCLEUS = 14;
+    const SNAP_DISTANCE_TO_CLOUD = 18;
+    const BOND_OVERLAP_THRESHOLD = 32;
+    const DUPLICATE_OFFSET_X = 130;
+    const DUPLICATE_OFFSET_Y = 40;
+
+    let idCounter = 0;
+    let zCounter = 10;
+    let moleculeMode = false;
+    let selected = null;
+    let dragState = null;
+    let currentTask = null;
+    let selectedNucleusSymbol = 'H';
+
+    const groups = new Map();
+    const bonds = new Map();
+    const pairBondCounts = new Map();
+
+    const ELEMENTS = [
+      { symbol: 'H',  name: 'Wasserstoff', atomicNumber: 1,  group: 1, period: 1 },
+      { symbol: 'He', name: 'Helium',      atomicNumber: 2,  group: 8, period: 1 },
+      { symbol: 'Li', name: 'Lithium',     atomicNumber: 3,  group: 1, period: 2 },
+      { symbol: 'Be', name: 'Beryllium',   atomicNumber: 4,  group: 2, period: 2 },
+      { symbol: 'B',  name: 'Bor',         atomicNumber: 5,  group: 3, period: 2 },
+      { symbol: 'C',  name: 'Kohlenstoff', atomicNumber: 6,  group: 4, period: 2 },
+      { symbol: 'N',  name: 'Stickstoff',  atomicNumber: 7,  group: 5, period: 2 },
+      { symbol: 'O',  name: 'Sauerstoff',  atomicNumber: 8,  group: 6, period: 2 },
+      { symbol: 'F',  name: 'Fluor',       atomicNumber: 9,  group: 7, period: 2 },
+      { symbol: 'Ne', name: 'Neon',        atomicNumber: 10, group: 8, period: 2 },
+      { symbol: 'Na', name: 'Natrium',     atomicNumber: 11, group: 1, period: 3 },
+      { symbol: 'Mg', name: 'Magnesium',   atomicNumber: 12, group: 2, period: 3 },
+      { symbol: 'Al', name: 'Aluminium',   atomicNumber: 13, group: 3, period: 3 },
+      { symbol: 'Si', name: 'Silicium',    atomicNumber: 14, group: 4, period: 3 },
+      { symbol: 'P',  name: 'Phosphor',    atomicNumber: 15, group: 5, period: 3 },
+      { symbol: 'S',  name: 'Schwefel',    atomicNumber: 16, group: 6, period: 3 },
+      { symbol: 'Cl', name: 'Chlor',       atomicNumber: 17, group: 7, period: 3 },
+      { symbol: 'Ar', name: 'Argon',       atomicNumber: 18, group: 8, period: 3 }
+    ];
+
+    function uid(prefix) {
+      idCounter += 1;
+      return `${prefix}-${idCounter}`;
+    }
+
+    function setFeedback(message, type = '') {
+      taskFeedback.textContent = message;
+      taskFeedback.className = 'task-feedback';
+      if (type) taskFeedback.classList.add(type);
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function selectElement(el) {
+      document.querySelectorAll('.selected').forEach(node => node.classList.remove('selected'));
+      selected = el || null;
+      if (selected) selected.classList.add('selected');
+      updateRotateHandle();
+    }
+
+
+    function getSelectionBounds(target) {
+      if (!target) return null;
+
+      if (target.classList.contains('nucleus')) {
+        const nucleus = target;
+        const group = findGroupById(nucleus.dataset.nucleusId);
+        if (!group) {
+          return {
+            left: parseFloat(nucleus.style.left),
+            top: parseFloat(nucleus.style.top),
+            right: parseFloat(nucleus.style.left) + nucleus.offsetWidth,
+            bottom: parseFloat(nucleus.style.top) + nucleus.offsetHeight
+          };
+        }
+        const elements = [nucleus, ...group.clouds.filter(cloud => cloud && cloud.isConnected)];
+        return elements.reduce((acc, el) => {
+          const left = parseFloat(el.style.left);
+          const top = parseFloat(el.style.top);
+          const right = left + el.offsetWidth;
+          const bottom = top + el.offsetHeight;
+          return {
+            left: Math.min(acc.left, left),
+            top: Math.min(acc.top, top),
+            right: Math.max(acc.right, right),
+            bottom: Math.max(acc.bottom, bottom)
+          };
+        }, { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
+      }
+
+      if (target.classList.contains('cloud')) {
+        const nucleus = findLinkedNucleus(target);
+        if (nucleus) return getSelectionBounds(nucleus);
+        const left = parseFloat(target.style.left);
+        const top = parseFloat(target.style.top);
+        return { left, top, right: left + target.offsetWidth, bottom: top + target.offsetHeight };
+      }
+
+      if (target.classList.contains('bond-cloud')) {
+        const left = parseFloat(target.style.left);
+        const top = parseFloat(target.style.top);
+        return { left, top, right: left + target.offsetWidth, bottom: top + target.offsetHeight };
+      }
+
+      return null;
+    }
+
+    function updateRotateHandle() {
+      if (!rotateHandle || !duplicateHandle) return;
+      const target = selected;
+      if (!target) {
+        rotateHandle.style.display = 'none';
+        duplicateHandle.style.display = 'none';
+        return;
+      }
+
+      const nucleus = target.classList.contains('nucleus') ? target : (target.classList.contains('cloud') ? findLinkedNucleus(target) : null);
+      if (!nucleus) {
+        rotateHandle.style.display = 'none';
+        duplicateHandle.style.display = 'none';
+        return;
+      }
+
+      const bounds = getSelectionBounds(nucleus);
+      if (!bounds) {
+        rotateHandle.style.display = 'none';
+        duplicateHandle.style.display = 'none';
+        return;
+      }
+
+      rotateHandle.style.display = 'flex';
+      duplicateHandle.style.display = 'flex';
+      rotateHandle.style.left = `${Math.min(bounds.right + 10, workspace.clientWidth - 40)}px`;
+      rotateHandle.style.top = `${Math.max(bounds.top - 4, 4)}px`;
+      duplicateHandle.style.left = `${Math.max(bounds.left - 44, 4)}px`;
+      duplicateHandle.style.top = `${Math.max(bounds.top - 4, 4)}px`;
+      rotateHandle.dataset.nucleusId = nucleus.dataset.nucleusId;
+      duplicateHandle.dataset.nucleusId = nucleus.dataset.nucleusId;
+    }
+
+    function getCloudCenter(cloud) {
+      return {
+        x: parseFloat(cloud.style.left) + cloud.offsetWidth / 2,
+        y: parseFloat(cloud.style.top) + cloud.offsetHeight / 2
+      };
+    }
+
+    function getNucleusCenter(nucleus) {
+      return {
+        x: parseFloat(nucleus.style.left) + nucleus.offsetWidth / 2,
+        y: parseFloat(nucleus.style.top) + nucleus.offsetHeight / 2
+      };
+    }
+
+    function ensureGroup(nucleus) {
+      const id = nucleus.dataset.nucleusId;
+      if (!groups.has(id)) {
+        groups.set(id, { nucleus, clouds: [], reserveCenter: false });
+      }
+      return groups.get(id);
+    }
+
+    function findGroupById(id) {
+      return groups.get(id) || null;
+    }
+
+    function findNucleusById(id) {
+      const group = findGroupById(id);
+      return group ? group.nucleus : null;
+    }
+
+    function findLinkedNucleus(cloud) {
+      return cloud?.dataset?.nucleusId ? findNucleusById(cloud.dataset.nucleusId) : null;
+    }
+
+    function getLayoutOffsets(count) {
+      if (count <= 1) return [{ x: 0, y: 0 }];
+      if (count === 2) return [{ x: 0, y: 0 }, { x: 0, y: CLOUD_SPACING }];
+      if (count === 3) return [{ x: 0, y: 0 }, { x: -CLOUD_SPACING, y: 0 }, { x: CLOUD_SPACING, y: 0 }];
+      if (count === 4) {
+        const r = CLOUD_SPACING;
+        const a = -Math.PI / 2;
+        return [
+          { x: 0, y: 0 },
+          { x: r * Math.cos(a), y: r * Math.sin(a) },
+          { x: r * Math.cos(a + (2 * Math.PI) / 3), y: r * Math.sin(a + (2 * Math.PI) / 3) },
+          { x: r * Math.cos(a + (4 * Math.PI) / 3), y: r * Math.sin(a + (4 * Math.PI) / 3) }
+        ];
+      }
+      return [
+        { x: 0, y: 0 },
+        { x: 0, y: -CLOUD_SPACING },
+        { x: -CLOUD_SPACING, y: 0 },
+        { x: CLOUD_SPACING, y: 0 },
+        { x: 0, y: CLOUD_SPACING }
+      ].slice(0, count);
+    }
+
+    function placeCloudAtOffset(cloud, nucleus, offset) {
+      const center = getNucleusCenter(nucleus);
+      cloud.style.left = `${clamp(center.x + offset.x - cloud.offsetWidth / 2, 0, workspace.clientWidth - cloud.offsetWidth)}px`;
+      cloud.style.top = `${clamp(center.y + offset.y - cloud.offsetHeight / 2, 0, workspace.clientHeight - cloud.offsetHeight)}px`;
+    }
+
+    function relayoutGroup(nucleusId) {
+      const group = findGroupById(nucleusId);
+      if (!group) return;
+
+      group.clouds = group.clouds.filter(cloud => cloud && cloud.isConnected);
+      if (group.clouds.length === 0) {
+        group.reserveCenter = false;
+        return;
+      }
+
+      const effectiveCount = group.clouds.length + (group.reserveCenter ? 1 : 0);
+      const offsets = getLayoutOffsets(effectiveCount);
+      const nucleusCenter = getNucleusCenter(group.nucleus);
+
+      let centerCloud = null;
+      if (!group.reserveCenter) {
+        centerCloud = group.clouds.find(cloud => cloud.dataset.groupIndex === '0') || group.clouds[0];
+      }
+
+      const outerClouds = group.clouds.filter(cloud => cloud !== centerCloud);
+      const availableOuterSlots = offsets
+        .map((_, index) => index)
+        .filter(index => index !== 0 && index < effectiveCount);
+
+      const bondedClouds = [];
+      const nonBondedClouds = [];
+
+      outerClouds.forEach((cloud) => {
+        if (cloud.dataset.bondId && bonds.has(cloud.dataset.bondId)) {
+          const bond = bonds.get(cloud.dataset.bondId);
+          const partnerCloud = bond.cloudA === cloud ? bond.cloudB : bond.cloudA;
+          const partnerNucleus = findLinkedNucleus(partnerCloud);
+          if (partnerNucleus) {
+            const partnerCenter = getNucleusCenter(partnerNucleus);
+            bondedClouds.push({
+              cloud,
+              vec: {
+                x: partnerCenter.x - nucleusCenter.x,
+                y: partnerCenter.y - nucleusCenter.y
+              }
+            });
+            return;
+          }
+        }
+        nonBondedClouds.push(cloud);
+      });
+
+      const assignments = new Map();
+
+      if (centerCloud) {
+        assignments.set(centerCloud, 0);
+      }
+
+      bondedClouds.forEach(({ cloud, vec }) => {
+        if (availableOuterSlots.length === 0) return;
+        let bestSlot = availableOuterSlots[0];
+        let bestScore = -Infinity;
+
+        availableOuterSlots.forEach((slotIndex) => {
+          const off = offsets[slotIndex];
+          const score = off.x * vec.x + off.y * vec.y;
+          if (score > bestScore) {
+            bestScore = score;
+            bestSlot = slotIndex;
+          }
+        });
+
+        assignments.set(cloud, bestSlot);
+        availableOuterSlots.splice(availableOuterSlots.indexOf(bestSlot), 1);
+      });
+
+      const bondedSum = bondedClouds.reduce((acc, item) => ({
+        x: acc.x + item.vec.x,
+        y: acc.y + item.vec.y
+      }), { x: 0, y: 0 });
+      const hasBondDirection = bondedClouds.length > 0 && (bondedSum.x !== 0 || bondedSum.y !== 0);
+
+      nonBondedClouds.forEach((cloud, index) => {
+        if (availableOuterSlots.length === 0) return;
+        let chosenSlot = availableOuterSlots[Math.min(index, availableOuterSlots.length - 1)];
+
+        if (hasBondDirection) {
+          let bestScore = Infinity;
+          availableOuterSlots.forEach((slotIndex) => {
+            const off = offsets[slotIndex];
+            const score = off.x * bondedSum.x + off.y * bondedSum.y;
+            if (score < bestScore) {
+              bestScore = score;
+              chosenSlot = slotIndex;
+            }
+          });
+        }
+
+        assignments.set(cloud, chosenSlot);
+        availableOuterSlots.splice(availableOuterSlots.indexOf(chosenSlot), 1);
+      });
+
+      group.clouds.forEach((cloud, index) => {
+        const fallbackSlot = centerCloud && cloud === centerCloud ? 0 : (availableOuterSlots[0] ?? Math.min(index + 1, effectiveCount - 1));
+        const slotIndex = assignments.has(cloud) ? assignments.get(cloud) : fallbackSlot;
+        cloud.dataset.groupIndex = String(slotIndex);
+        cloud.dataset.snappedTo = 'true';
+        cloud.dataset.nucleusId = nucleusId;
+        placeCloudAtOffset(cloud, group.nucleus, offsets[slotIndex]);
+      });
+
+      updateAllBonds();
+    }
+
+    function removeBondById(bondId) {
+      const bond = bonds.get(bondId);
+      if (!bond) return;
+      if (bond.element.parentElement) bond.element.remove();
+      [bond.cloudA, bond.cloudB].forEach(cloud => {
+        delete cloud.dataset.bondId;
+        cloud.dataset.color = 'blue';
+        cloud.style.visibility = 'visible';
+      });
+      bonds.delete(bondId);
+
+      const remaining = Array.from(bonds.values()).filter(item => item.pairKey === bond.pairKey);
+      if (remaining.length === 0) {
+        pairBondCounts.delete(bond.pairKey);
+      } else {
+        pairBondCounts.set(bond.pairKey, remaining.length);
+        remaining.forEach((item, index) => { item.index = index + 1; });
+      }
+
+      [bond.cloudA, bond.cloudB].forEach(cloud => {
+        const nucleus = findLinkedNucleus(cloud);
+        if (nucleus) relayoutGroup(nucleus.dataset.nucleusId);
+      });
+    }
+
+    function updateBondVisual(bondId) {
+      const bond = bonds.get(bondId);
+      if (!bond) return;
+      const nucleusA = findLinkedNucleus(bond.cloudA);
+      const nucleusB = findLinkedNucleus(bond.cloudB);
+      if (!nucleusA || !nucleusB) return;
+
+      const groupA = findGroupById(nucleusA.dataset.nucleusId);
+      const groupB = findGroupById(nucleusB.dataset.nucleusId);
+      const wrapsCoreA = !!groupA && groupA.clouds.length === 1 && groupA.clouds[0]?.classList.contains('blue');
+      const wrapsCoreB = !!groupB && groupB.clouds.length === 1 && groupB.clouds[0]?.classList.contains('blue');
+
+      const a = getNucleusCenter(nucleusA);
+      const b = getNucleusCenter(nucleusB);
+      const distance = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+
+      const nucleusRadiusA = nucleusA.offsetWidth / 2;
+      const nucleusRadiusB = nucleusB.offsetWidth / 2;
+      const innerRadius = CLOUD_SIZE / 2;
+      const startOffset = wrapsCoreA ? 0 : nucleusRadiusA + innerRadius;
+      const endOffset = wrapsCoreB ? 0 : nucleusRadiusB + innerRadius;
+      const width = (wrapsCoreA || wrapsCoreB)
+        ? Math.max(104, distance - startOffset - endOffset + 40)
+        : Math.max(40, distance - startOffset - endOffset);
+      const height = 64;
+
+      const pairCount = pairBondCounts.get(bond.pairKey) || 1;
+      const centeredIndex = bond.index - (pairCount + 1) / 2;
+      const nx = -(b.y - a.y);
+      const ny = b.x - a.x;
+      const nl = Math.hypot(nx, ny) || 1;
+      const offsetX = (nx / nl) * centeredIndex * 52;
+      const offsetY = (ny / nl) * centeredIndex * 52;
+
+      const dx = (b.x - a.x) / distance;
+      const dy = (b.y - a.y) / distance;
+      const startX = a.x + dx * startOffset;
+      const startY = a.y + dy * startOffset;
+      const endX = b.x - dx * endOffset;
+      const endY = b.y - dy * endOffset;
+      const centerX = (startX + endX) / 2;
+      const centerY = (startY + endY) / 2;
+
+      bond.element.style.width = `${width}px`;
+      bond.element.style.height = `${height}px`;
+      bond.element.style.left = `${centerX - width / 2 + offsetX}px`;
+      bond.element.style.top = `${centerY - height / 2 + offsetY}px`;
+      bond.element.style.transform = `rotate(${angle}deg)`;
+      bond.element.dataset.bondId = bondId;
+    }
+
+    function updateAllBonds() {
+      Array.from(bonds.keys()).forEach(updateBondVisual);
+      updateRotateHandle();
+    }
+
+    function countBondsForPair(nucleusIdA, nucleusIdB) {
+      const pairKey = [nucleusIdA, nucleusIdB].sort().join('-');
+      return pairBondCounts.get(pairKey) || 0;
+    }
+
+    function createBondBetweenClouds(cloudA, cloudB) {
+      if (cloudA.dataset.bondId || cloudB.dataset.bondId) return;
+      const atomAId = cloudA.dataset.nucleusId;
+      const atomBId = cloudB.dataset.nucleusId;
+      if (countBondsForPair(atomAId, atomBId) >= MAX_BONDS_PER_PAIR) return;
+      const atomA = cloudA.dataset.nucleusId;
+      const atomB = cloudB.dataset.nucleusId;
+      const pairKey = [atomA, atomB].sort().join('-');
+      const count = (pairBondCounts.get(pairKey) || 0) + 1;
+      pairBondCounts.set(pairKey, count);
+
+      const bondId = uid('bond');
+      const element = document.createElement('div');
+      element.className = 'bond-cloud';
+      workspace.appendChild(element);
+      element.addEventListener('click', (event) => {
+        event.stopPropagation();
+        selectElement(element);
+      });
+      element.addEventListener('dblclick', (event) => {
+        event.stopPropagation();
+        removeBondById(bondId);
+        setFeedback('Bindung getrennt.', 'success');
+      });
+
+      cloudA.dataset.bondId = bondId;
+      cloudB.dataset.bondId = bondId;
+      cloudA.dataset.color = 'bond-blue';
+      cloudB.dataset.color = 'bond-blue';
+      cloudA.style.visibility = 'hidden';
+      cloudB.style.visibility = 'hidden';
+
+      bonds.set(bondId, { id: bondId, element, cloudA, cloudB, pairKey, index: count });
+      updateBondVisual(bondId);
+      relayoutGroup(atomA);
+      relayoutGroup(atomB);
+    }
+
+    function removeBondsForCloud(cloud) {
+      if (cloud.dataset.bondId) removeBondById(cloud.dataset.bondId);
+    }
+
+    function removeBondsForGroup(group) {
+      if (!group) return;
+      [...group.clouds].forEach(removeBondsForCloud);
+    }
+
+    function releaseCloudFromGroup(cloud) {
+      removeBondsForCloud(cloud);
+      const group = findGroupById(cloud.dataset.nucleusId);
+      if (!group) return;
+      const removedWasCenter = cloud.dataset.groupIndex === '0';
+      group.clouds = group.clouds.filter(item => item !== cloud);
+      if (removedWasCenter && group.clouds.length > 0) group.reserveCenter = true;
+      delete cloud.dataset.snappedTo;
+      delete cloud.dataset.nucleusId;
+      delete cloud.dataset.groupIndex;
+      relayoutGroup(group.nucleus.dataset.nucleusId);
+    }
+
+    function clearNucleusBinding(nucleus) {
+      const group = findGroupById(nucleus.dataset.nucleusId);
+      if (!group) return;
+      removeBondsForGroup(group);
+      group.clouds.forEach(cloud => {
+        delete cloud.dataset.snappedTo;
+        delete cloud.dataset.nucleusId;
+        delete cloud.dataset.groupIndex;
+      });
+      groups.delete(nucleus.dataset.nucleusId);
+    }
+
+    function deleteGroupByNucleus(nucleus) {
+      const group = findGroupById(nucleus.dataset.nucleusId);
+      if (group) {
+        removeBondsForGroup(group);
+        group.clouds.forEach(cloud => {
+          if (cloud.parentElement) cloud.remove();
+        });
+        groups.delete(nucleus.dataset.nucleusId);
+      }
+      if (nucleus.parentElement) nucleus.remove();
+    }
+
+    function isBondableBlueCloud(cloud) {
+      if (!cloud.classList.contains('blue')) return false;
+      if (cloud.dataset.snappedTo !== 'true') return false;
+      if (cloud.dataset.bondId) return false;
+      if (cloud.dataset.groupIndex !== '0') return true;
+      const group = findGroupById(cloud.dataset.nucleusId);
+      return !!group && group.clouds.length === 1;
+    }
+
+    function getAllOverlapPairs() {
+      const candidates = Array.from(workspace.querySelectorAll('.cloud.blue')).filter(cloud => {
+        return cloud.style.visibility !== 'hidden' && isBondableBlueCloud(cloud);
+      });
+
+      const pairs = [];
+      for (let i = 0; i < candidates.length; i += 1) {
+        for (let j = i + 1; j < candidates.length; j += 1) {
+          const a = candidates[i];
+          const b = candidates[j];
+          if (a.dataset.nucleusId === b.dataset.nucleusId) continue;
+
+          const ac = getCloudCenter(a);
+          const bc = getCloudCenter(b);
+          const dist = Math.hypot(ac.x - bc.x, ac.y - bc.y);
+          if (dist <= CLOUD_SIZE - BOND_OVERLAP_THRESHOLD) {
+            pairs.push({ a, b, dist });
+          }
+        }
+      }
+
+      return pairs.sort((p1, p2) => p1.dist - p2.dist);
+    }
+
+    function tryCreateBondForGroup() {
+      return false;
+    }
+
+    function tryCreateAllPossibleBonds() {
+      if (!moleculeMode) return false;
+
+      const overlapPairs = getAllOverlapPairs();
+      const usedCloudIds = new Set();
+      const chosenPairs = [];
+
+      overlapPairs.forEach(({ a, b }) => {
+        const aId = a.dataset.cloudId;
+        const bId = b.dataset.cloudId;
+        if (!aId || !bId) return;
+        if (usedCloudIds.has(aId) || usedCloudIds.has(bId)) return;
+        if (a.dataset.bondId || b.dataset.bondId) return;
+        chosenPairs.push({ a, b });
+        usedCloudIds.add(aId);
+        usedCloudIds.add(bId);
+      });
+
+      if (chosenPairs.length === 0) return false;
+
+      chosenPairs.forEach(({ a, b }) => {
+        createBondBetweenClouds(a, b);
+      });
+
+      return true;
+    }
+
+    function findSnapTargetForCloud(cloud) {
+      const cc = getCloudCenter(cloud);
+      const cr = cloud.offsetWidth / 2;
+
+      for (const nucleus of Array.from(workspace.querySelectorAll('.cloud.nucleus'))) {
+        const nc = getNucleusCenter(nucleus);
+        const nr = nucleus.offsetWidth / 2;
+        if (Math.hypot(cc.x - nc.x, cc.y - nc.y) <= cr + nr + SNAP_DISTANCE_TO_NUCLEUS) {
+          const group = ensureGroup(nucleus);
+          if (group.clouds.length < MAX_GROUP_SIZE) return nucleus;
+        }
+      }
+
+      const snappedClouds = Array.from(workspace.querySelectorAll('.cloud:not(.nucleus)')).filter(target => target !== cloud && target.dataset.snappedTo === 'true');
+      for (const target of snappedClouds) {
+        const tc = getCloudCenter(target);
+        if (Math.hypot(cc.x - tc.x, cc.y - tc.y) <= cr + target.offsetWidth / 2 + SNAP_DISTANCE_TO_CLOUD) {
+          const nucleus = findLinkedNucleus(target);
+          if (!nucleus) continue;
+          const group = ensureGroup(nucleus);
+          if (group.clouds.length < MAX_GROUP_SIZE) return nucleus;
+        }
+      }
+      return null;
+    }
+
+    
+    function findAtomTargetForLooseNucleus(nucleus) {
+      const nc = getNucleusCenter(nucleus);
+      const nr = nucleus.offsetWidth / 2;
+      const candidateNuclei = Array.from(workspace.querySelectorAll('.cloud.nucleus')).filter(target => {
+        if (!target.isConnected) return false;
+        if (target === nucleus) return false;
+        const targetGroup = findGroupById(target.dataset.nucleusId);
+        return !!targetGroup && targetGroup.clouds.length > 0;
+      });
+
+      for (const target of candidateNuclei) {
+        const tc = getNucleusCenter(target);
+        const tr = target.offsetWidth / 2;
+        if (Math.hypot(nc.x - tc.x, nc.y - tc.y) <= nr + tr + SNAP_DISTANCE_TO_NUCLEUS + 10) {
+          return target;
+        }
+      }
+      return null;
+    }
+
+    function replaceGroupNucleus(targetNucleus, looseNucleus) {
+      const targetGroup = findGroupById(targetNucleus.dataset.nucleusId);
+      if (!targetGroup) return false;
+
+      const oldLeft = targetNucleus.style.left;
+      const oldTop = targetNucleus.style.top;
+      const oldZ = targetNucleus.style.zIndex;
+      const newSymbol = (looseNucleus.textContent || '').trim();
+      const looseId = looseNucleus.dataset.nucleusId;
+
+      // Losen Kern zuerst exakt auf die Position des alten Kerns setzen.
+      looseNucleus.style.left = oldLeft;
+      looseNucleus.style.top = oldTop;
+      looseNucleus.style.zIndex = oldZ;
+
+      // Objektänderung am bestehenden Kern: Symbol übernehmen, Objekt bleibt gleich.
+      targetNucleus.textContent = newSymbol;
+
+      // Losen Kern inklusive leerer Gruppe entfernen.
+      groups.delete(looseId);
+      if (looseNucleus.parentElement) looseNucleus.remove();
+
+      // Keine Neu-Anordnung der Kugelwolken: Geometrie des Atoms bleibt erhalten.
+      updateAllBonds();
+      selectElement(targetNucleus);
+      setFeedback(`Atomkern ersetzt: ${newSymbol}`, 'success');
+      return true;
+    }
+
+function findCloudTargetForNucleus(nucleus) {
+      const nc = getNucleusCenter(nucleus);
+      const nr = nucleus.offsetWidth / 2;
+      const candidateClouds = Array.from(workspace.querySelectorAll('.cloud:not(.nucleus)')).filter(cloud => {
+        if (!cloud.isConnected) return false;
+        if (cloud.dataset.nucleusId === nucleus.dataset.nucleusId) return false;
+        return true;
+      });
+
+      for (const cloud of candidateClouds) {
+        const cc = getCloudCenter(cloud);
+        const cr = cloud.offsetWidth / 2;
+        if (Math.hypot(cc.x - nc.x, cc.y - nc.y) <= cr + nr + SNAP_DISTANCE_TO_NUCLEUS) {
+          return cloud;
+        }
+      }
+      return null;
+    }
+
+    function attachCloudToNucleus(cloud, nucleus) {
+      if (cloud.dataset.nucleusId === nucleus.dataset.nucleusId) return;
+      if (cloud.dataset.nucleusId) releaseCloudFromGroup(cloud);
+      const group = ensureGroup(nucleus);
+      if (group.clouds.includes(cloud) || group.clouds.length >= MAX_GROUP_SIZE) return;
+      if (group.reserveCenter) {
+        group.clouds.unshift(cloud);
+        group.reserveCenter = false;
+      } else {
+        group.clouds.push(cloud);
+      }
+      relayoutGroup(nucleus.dataset.nucleusId);
+    }
+
+    function startGroupDrag(nucleus, pointerX, pointerY, pointerOffset) {
+      const group = ensureGroup(nucleus);
+      const nucleusLeft = parseFloat(nucleus.style.left);
+      const nucleusTop = parseFloat(nucleus.style.top);
+
+      const cloudOffsets = group.clouds.map(cloud => ({
+        cloud,
+        dx: parseFloat(cloud.style.left) - nucleusLeft,
+        dy: parseFloat(cloud.style.top) - nucleusTop,
+        width: cloud.offsetWidth,
+        height: cloud.offsetHeight
+      }));
+
+      const minDx = Math.min(0, ...cloudOffsets.map(item => item.dx));
+      const minDy = Math.min(0, ...cloudOffsets.map(item => item.dy));
+      const maxRight = Math.max(nucleus.offsetWidth, ...cloudOffsets.map(item => item.dx + item.width));
+      const maxBottom = Math.max(nucleus.offsetHeight, ...cloudOffsets.map(item => item.dy + item.height));
+
+      dragState = {
+        nucleus,
+        offsetX: pointerOffset.x,
+        offsetY: pointerOffset.y,
+        cloudOffsets,
+        minDx,
+        minDy,
+        maxRight,
+        maxBottom
+      };
+    }
+
+    function moveActiveGroup(clientX, clientY) {
+      if (!dragState) return;
+      const rect = workspace.getBoundingClientRect();
+
+      const unclampedLeft = clientX - rect.left - dragState.offsetX;
+      const unclampedTop = clientY - rect.top - dragState.offsetY;
+
+      const left = clamp(
+        unclampedLeft,
+        -dragState.minDx,
+        workspace.clientWidth - dragState.maxRight
+      );
+      const top = clamp(
+        unclampedTop,
+        -dragState.minDy,
+        workspace.clientHeight - dragState.maxBottom
+      );
+
+      dragState.nucleus.style.left = `${left}px`;
+      dragState.nucleus.style.top = `${top}px`;
+
+      dragState.cloudOffsets.forEach(item => {
+        item.cloud.style.left = `${left + item.dx}px`;
+        item.cloud.style.top = `${top + item.dy}px`;
+      });
+
+      updateAllBonds();
+    }
+
+    function isOverTrash(x, y) {
+      const r = trash.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    }
+
+    function makeDraggableCloud(cloud) {
+      let dragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      cloud.addEventListener('pointerdown', (event) => {
+        selectElement(cloud);
+        dragging = true;
+        cloud.style.zIndex = String(++zCounter);
+        const rect = cloud.getBoundingClientRect();
+        offsetX = event.clientX - rect.left;
+        offsetY = event.clientY - rect.top;
+
+        if (cloud.dataset.snappedTo === 'true') {
+          const nucleus = findLinkedNucleus(cloud);
+          if (nucleus) {
+            startGroupDrag(nucleus, event.clientX, event.clientY, {
+              x: offsetX - (cloud.offsetWidth / 2 - nucleus.offsetWidth / 2),
+              y: offsetY - (cloud.offsetHeight / 2 - nucleus.offsetHeight / 2)
+            });
+          }
+        } else {
+          dragState = null;
+        }
+        cloud.setPointerCapture(event.pointerId);
+      });
+
+      cloud.addEventListener('pointermove', (event) => {
+        if (!dragging) return;
+        if (dragState && cloud.dataset.snappedTo === 'true') {
+          moveActiveGroup(event.clientX, event.clientY);
+          return;
+        }
+        const rect = workspace.getBoundingClientRect();
+        cloud.style.left = `${clamp(event.clientX - rect.left - offsetX, 0, workspace.clientWidth - cloud.offsetWidth)}px`;
+        cloud.style.top = `${clamp(event.clientY - rect.top - offsetY, 0, workspace.clientHeight - cloud.offsetHeight)}px`;
+      });
+
+      function stopDragging(event) {
+        if (!dragging) return;
+        dragging = false;
+        if (cloud.hasPointerCapture(event.pointerId)) cloud.releasePointerCapture(event.pointerId);
+
+        if (isOverTrash(event.clientX, event.clientY)) {
+          const nucleus = dragState ? dragState.nucleus : findLinkedNucleus(cloud);
+          if (nucleus) deleteGroupByNucleus(nucleus);
+          else {
+            removeBondsForCloud(cloud);
+            if (cloud.parentElement) cloud.remove();
+          }
+          dragState = null;
+          return;
+        }
+
+        if (cloud.dataset.snappedTo === 'true') {
+          tryCreateAllPossibleBonds();
+          dragState = null;
+          return;
+        }
+
+        const nucleus = findSnapTargetForCloud(cloud);
+        if (nucleus) attachCloudToNucleus(cloud, nucleus);
+        dragState = null;
+      }
+
+      cloud.addEventListener('pointerup', stopDragging);
+      cloud.addEventListener('pointercancel', stopDragging);
+      cloud.addEventListener('click', () => selectElement(cloud));
+      cloud.addEventListener('dblclick', () => {
+        if (cloud.dataset.snappedTo === 'true') releaseCloudFromGroup(cloud);
+        if (cloud.parentElement) cloud.remove();
+        if (selected === cloud) selected = null;
+      });
+    }
+
+    function makeNucleusInteractive(nucleus) {
+      let dragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      nucleus.addEventListener('pointerdown', (event) => {
+        selectElement(nucleus);
+        dragging = true;
+        const rect = nucleus.getBoundingClientRect();
+        offsetX = event.clientX - rect.left;
+        offsetY = event.clientY - rect.top;
+        startGroupDrag(nucleus, event.clientX, event.clientY, { x: offsetX, y: offsetY });
+        nucleus.setPointerCapture(event.pointerId);
+      });
+
+      nucleus.addEventListener('pointermove', (event) => {
+        if (!dragging) return;
+        moveActiveGroup(event.clientX, event.clientY);
+      });
+
+      function stopDragging(event) {
+        if (!dragging) return;
+        dragging = false;
+        if (nucleus.hasPointerCapture(event.pointerId)) nucleus.releasePointerCapture(event.pointerId);
+        if (isOverTrash(event.clientX, event.clientY)) {
+          deleteGroupByNucleus(nucleus);
+          dragState = null;
+          return;
+        }
+
+        const ownGroup = findGroupById(nucleus.dataset.nucleusId);
+        const isLooseNucleus = !ownGroup || ownGroup.clouds.length === 0;
+
+        // Snap- und Kernaustausch-Logik nur für wirklich lose Kerne anwenden.
+        // Bereits aufgebaute Atome dürfen beim Bewegen nicht fälschlich neu angeheftet werden.
+        if (isLooseNucleus) {
+          const targetAtomNucleus = findAtomTargetForLooseNucleus(nucleus);
+          if (targetAtomNucleus) {
+            replaceGroupNucleus(targetAtomNucleus, nucleus);
+            dragState = null;
+            return;
+          }
+
+          const targetCloud = findCloudTargetForNucleus(nucleus);
+          if (targetCloud) {
+            attachCloudToNucleus(targetCloud, nucleus);
+          }
+        }
+
+        tryCreateAllPossibleBonds();
+        dragState = null;
+      }
+
+      nucleus.addEventListener('pointerup', stopDragging);
+      nucleus.addEventListener('pointercancel', stopDragging);
+      nucleus.addEventListener('click', () => selectElement(nucleus));
+      nucleus.addEventListener('dblclick', () => {
+        deleteGroupByNucleus(nucleus);
+        if (selected === nucleus) selected = null;
+      });
+    }
+
+    function createCloud(color) {
+      const cloud = document.createElement('div');
+      cloud.className = `cloud ${color}`;
+      cloud.dataset.color = color;
+      cloud.dataset.cloudId = uid('cloud');
+      cloud.style.left = `${20 + (idCounter * 12) % 220}px`;
+      cloud.style.top = `${20 + (idCounter * 12) % 220}px`;
+      cloud.style.zIndex = String(++zCounter);
+      makeDraggableCloud(cloud);
+      workspace.appendChild(cloud);
+      selectElement(cloud);
+      return cloud;
+    }
+
+    function createNucleus(symbol = '') {
+      const nucleus = document.createElement('div');
+      nucleus.className = 'cloud nucleus';
+      nucleus.textContent = symbol;
+      nucleus.dataset.nucleusId = uid('nucleus');
+      nucleus.style.left = `${20 + (idCounter * 12) % 220}px`;
+      nucleus.style.top = `${20 + (idCounter * 12) % 220}px`;
+      makeNucleusInteractive(nucleus);
+      workspace.appendChild(nucleus);
+      ensureGroup(nucleus);
+      selectElement(nucleus);
+      return nucleus;
+    }
+
+    function duplicateAtomModelFromNucleus(sourceNucleus) {
+      const sourceGroup = findGroupById(sourceNucleus.dataset.nucleusId);
+      if (!sourceGroup) return;
+      const newNucleus = createNucleus(sourceNucleus.textContent);
+      newNucleus.style.left = `${clamp(parseFloat(sourceNucleus.style.left) + DUPLICATE_OFFSET_X, 0, workspace.clientWidth - NUCLEUS_SIZE)}px`;
+      newNucleus.style.top = `${clamp(parseFloat(sourceNucleus.style.top) + DUPLICATE_OFFSET_Y, 0, workspace.clientHeight - NUCLEUS_SIZE)}px`;
+      const newGroup = findGroupById(newNucleus.dataset.nucleusId);
+      newGroup.reserveCenter = sourceGroup.reserveCenter;
+      sourceGroup.clouds.forEach(sourceCloud => {
+        const clone = createCloud(sourceCloud.dataset.color);
+        clone.dataset.nucleusId = newNucleus.dataset.nucleusId;
+        clone.dataset.snappedTo = 'true';
+        newGroup.clouds.push(clone);
+      });
+      relayoutGroup(newNucleus.dataset.nucleusId);
+      setFeedback('Atommodell dupliziert.', 'success');
+    }
+
+    function deleteSelected() {
+      if (!selected) return;
+      if (selected.classList.contains('bond-cloud') && selected.dataset.bondId) {
+        removeBondById(selected.dataset.bondId);
+      } else if (selected.classList.contains('nucleus')) {
+        deleteGroupByNucleus(selected);
+      } else if (selected.classList.contains('cloud')) {
+        if (selected.dataset.snappedTo === 'true') releaseCloudFromGroup(selected);
+        removeBondsForCloud(selected);
+        if (selected.parentElement) selected.remove();
+      }
+      selected = null;
+      updateRotateHandle();
+    }
+
+    function clearWorkspace() {
+      Array.from(workspace.querySelectorAll('.cloud, .bond-cloud')).forEach(el => {
+        if (el !== trash) el.remove();
+      });
+      groups.clear();
+      bonds.clear();
+      pairBondCounts.clear();
+      selected = null;
+      dragState = null;
+      updateRotateHandle();
+      setFeedback('Arbeitsfläche geleert.');
+    }
+
+    
+function setMoleculeMode(state) {
+      moleculeMode = state;
+      moleculeModeBtn.textContent = `Molekülmodus: ${state ? "an" : "aus"}`;
+    }
+
+    
+    function handlePaletteDropAt(clientX, clientY, color, nucleusSymbol) {
+      const rect = workspace.getBoundingClientRect();
+
+      if (color) {
+        const cloud = createCloud(color);
+        cloud.style.left = `${Math.max(0, Math.min(clientX - rect.left - cloud.offsetWidth / 2, workspace.clientWidth - cloud.offsetWidth))}px`;
+        cloud.style.top = `${Math.max(0, Math.min(clientY - rect.top - cloud.offsetHeight / 2, workspace.clientHeight - cloud.offsetHeight))}px`;
+
+        const targetNucleus = findSnapTargetForCloud(cloud);
+        if (targetNucleus) {
+          attachCloudToNucleus(cloud, targetNucleus);
+        }
+        tryCreateAllPossibleBonds();
+        return;
+      }
+
+      if (nucleusSymbol) {
+        selectedNucleusSymbol = nucleusSymbol;
+        const nucleus = createNucleus(nucleusSymbol);
+        nucleus.style.left = `${Math.max(0, Math.min(clientX - rect.left - nucleus.offsetWidth / 2, workspace.clientWidth - nucleus.offsetWidth))}px`;
+        nucleus.style.top = `${Math.max(0, Math.min(clientY - rect.top - nucleus.offsetHeight / 2, workspace.clientHeight - nucleus.offsetHeight))}px`;
+
+        const targetAtomNucleus = findAtomTargetForLooseNucleus(nucleus);
+        if (targetAtomNucleus) {
+          replaceGroupNucleus(targetAtomNucleus, nucleus);
+          return;
+        }
+
+        const targetCloud = findCloudTargetForNucleus(nucleus);
+        if (targetCloud) {
+          attachCloudToNucleus(targetCloud, nucleus);
+        }
+        tryCreateAllPossibleBonds();
+      }
+    }
+
+    function bindPaletteCloudTouch(el) {
+      if (!el || el.dataset.touchBound === 'true') return;
+      el.dataset.touchBound = 'true';
+
+      let preview = null;
+
+      function movePreview(clientX, clientY) {
+        if (!preview) return;
+        preview.style.left = `${clientX - preview.offsetWidth / 2}px`;
+        preview.style.top = `${clientY - preview.offsetHeight / 2}px`;
+      }
+
+      function clearPreview() {
+        if (preview && preview.parentElement) preview.remove();
+        preview = null;
+      }
+
+      el.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+        preview = el.cloneNode(true);
+        preview.classList.add('touch-drag-preview');
+        preview.removeAttribute('draggable');
+        document.body.appendChild(preview);
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (touch) movePreview(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      el.addEventListener('touchmove', (event) => {
+        event.preventDefault();
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (touch) movePreview(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      el.addEventListener('touchend', (event) => {
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (touch) {
+          const w = workspace.getBoundingClientRect();
+          if (touch.clientX >= w.left && touch.clientX <= w.right && touch.clientY >= w.top && touch.clientY <= w.bottom) {
+            handlePaletteDropAt(touch.clientX, touch.clientY, el.dataset.color, '');
+          }
+        }
+        clearPreview();
+      });
+
+      el.addEventListener('touchcancel', () => {
+        clearPreview();
+      });
+    }
+
+    function bindNucleusChoiceTouch(el, symbol) {
+      if (!el || el.dataset.touchBound === 'true') return;
+      el.dataset.touchBound = 'true';
+
+      let preview = null;
+
+      function movePreview(clientX, clientY) {
+        if (!preview) return;
+        preview.style.left = `${clientX - preview.offsetWidth / 2}px`;
+        preview.style.top = `${clientY - preview.offsetHeight / 2}px`;
+      }
+
+      function clearPreview() {
+        if (preview && preview.parentElement) preview.remove();
+        preview = null;
+      }
+
+      el.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+        selectedNucleusSymbol = symbol;
+        preview = el.cloneNode(true);
+        preview.classList.add('touch-drag-preview');
+        preview.removeAttribute('draggable');
+        document.body.appendChild(preview);
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (touch) movePreview(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      el.addEventListener('touchmove', (event) => {
+        event.preventDefault();
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (touch) movePreview(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      el.addEventListener('touchend', (event) => {
+        const touch = event.changedTouches && event.changedTouches[0];
+        if (touch) {
+          const w = workspace.getBoundingClientRect();
+          if (touch.clientX >= w.left && touch.clientX <= w.right && touch.clientY >= w.top && touch.clientY <= w.bottom) {
+            handlePaletteDropAt(touch.clientX, touch.clientY, '', symbol);
+          } else {
+            renderNucleusPicker();
+          }
+        }
+        clearPreview();
+      });
+
+      el.addEventListener('touchcancel', () => {
+        clearPreview();
+        renderNucleusPicker();
+      });
+    }
+
+    function renderNucleusPicker() {
+      if (!nucleusPicker) return;
+      nucleusPicker.innerHTML = '';
+
+      [1, 2, 3].forEach(period => {
+        const row = document.createElement('div');
+        row.className = 'task-picker-row';
+
+        for (let col = 1; col <= 18; col += 1) {
+          const mainGroup = col <= 2 ? col : col >= 13 ? col - 10 : null;
+          const element = ELEMENTS.find(el => el.period === period && el.group === mainGroup);
+
+          if (element) {
+            const wrap = document.createElement('div');
+            wrap.style.display = 'flex';
+            wrap.style.alignItems = 'center';
+            wrap.style.justifyContent = 'center';
+
+            const nucleus = document.createElement('div');
+            nucleus.className = 'nucleus-choice';
+            if (element.symbol === selectedNucleusSymbol) nucleus.classList.add('active');
+            nucleus.textContent = element.symbol;
+            nucleus.dataset.symbol = element.symbol;
+            nucleus.draggable = true;
+            nucleus.setAttribute('draggable', 'true');
+            nucleus.title = `${element.name} ziehen`;
+
+            nucleus.addEventListener('click', () => {
+              selectedNucleusSymbol = element.symbol;
+              renderNucleusPicker();
+              setFeedback(`Kernauswahl: ${element.symbol}`);
+            });
+
+            nucleus.addEventListener('dragstart', (event) => {
+              selectedNucleusSymbol = element.symbol;
+              event.dataTransfer.effectAllowed = 'copy';
+              event.dataTransfer.setData('application/x-nucleus', element.symbol);
+              event.dataTransfer.setData('text/plain', element.symbol);
+            });
+            bindNucleusChoiceTouch(nucleus, element.symbol);
+
+            wrap.appendChild(nucleus);
+            row.appendChild(wrap);
+          } else {
+            const spacer = document.createElement('div');
+            spacer.className = 'element-spacer';
+            row.appendChild(spacer);
+          }
+        }
+
+        nucleusPicker.appendChild(row);
+      });
+    }
+
+    function renderTaskPicker() {
+      // Aufgaben werden nur zufällig gewählt. Keine manuelle Auswahl im Banner.
+    }
+
+    function setCurrentTask(element) {
+      taskMode = 'atom';
+      currentMoleculeTask = null;
+      currentTask = element;
+      taskSymbol.textContent = element.symbol;
+      taskDetails.innerHTML = `<strong>${element.name}</strong><br>Ordnungszahl: ${element.atomicNumber}<br>Hauptgruppe: ${element.group}<br>Periode: ${element.period}`;
+      setFeedback('Baue dieses Atom.');
+    }
+
+    function createRandomTask() {
+      const el = ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
+      setCurrentTask(el);
+    }
+
+    function checkCurrentSolution() {
+      if (!currentTask) {
+        setFeedback('Keine Aufgabe gewählt.', 'error');
+        return;
+      }
+      const connectedGroups = Array.from(groups.values()).filter(group => group.nucleus && group.nucleus.isConnected);
+      const freeClouds = Array.from(workspace.querySelectorAll('.cloud:not(.nucleus)')).filter(cloud => cloud.dataset.snappedTo !== 'true' && cloud.style.visibility !== 'hidden');
+      if (connectedGroups.length !== 1 || freeClouds.length > 0) {
+        setFeedback('Lege genau ein vollständiges Atommodell ohne lose Kugelwolken.', 'error');
+        return;
+      }
+      const group = connectedGroups[0];
+      const visibleClouds = group.clouds.filter(cloud => cloud && cloud.isConnected);
+      const centerCloud = visibleClouds.find(cloud => cloud.dataset.groupIndex === '0');
+      if (!centerCloud) {
+        setFeedback('Im Zentrum fehlt die passende Kugelwolke.', 'error');
+        return;
+      }
+      let expectedCenter = 'red';
+      if (currentTask.period === 3) expectedCenter = 'green';
+      if (currentTask.period === 1) expectedCenter = currentTask.atomicNumber === 1 ? 'blue' : 'red';
+      if (centerCloud.dataset.color !== expectedCenter) {
+        setFeedback('Die mittlere Kugelwolke stimmt nicht.', 'error');
+        return;
+      }
+      const outerClouds = visibleClouds.filter(c => c.dataset.groupIndex !== '0').map(c => c.dataset.color).sort();
+      let valence = currentTask.group;
+      let expectedOuter = [];
+      const singles = Math.min(valence, 4);
+      for (let i = 0; i < singles; i += 1) expectedOuter.push('blue');
+      let remaining = valence - singles;
+      for (let i = 0; i < remaining; i += 1) expectedOuter[i] = 'red';
+      expectedOuter.sort();
+      if (JSON.stringify(outerClouds) !== JSON.stringify(expectedOuter)) {
+        setFeedback('Die äußeren Kugelwolken stimmen noch nicht.', 'error');
+        return;
+      }
+      setFeedback('Richtig! Das Atommodell passt zur Aufgabe.', 'success');
+    }
+
+    function rotateGroupByNucleus(nucleus, deg) {
+      const g = findGroupById(nucleus.dataset.nucleusId);
+      if (!g) return;
+      const center = getNucleusCenter(nucleus);
+      const angle = deg * Math.PI / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      g.clouds.forEach(c => {
+        const cc = getCloudCenter(c);
+        const dx = cc.x - center.x;
+        const dy = cc.y - center.y;
+        const rx = dx * cos - dy * sin;
+        const ry = dx * sin + dy * cos;
+        c.style.left = `${center.x + rx - c.offsetWidth / 2}px`;
+        c.style.top = `${center.y + ry - c.offsetHeight / 2}px`;
+      });
+      updateAllBonds();
+    }
+
+buttons.forEach(button => {
+      button.addEventListener('click', () => createCloud(button.dataset.color));
+    });
+
+    
+    moleculeModeBtn.addEventListener('click', () => setMoleculeMode(!moleculeMode));
+    
+    duplicateHandle.addEventListener('click', () => {
+      const nucleusId = duplicateHandle.dataset.nucleusId;
+      const nucleus = nucleusId ? findNucleusById(nucleusId) : null;
+      if (!nucleus) {
+        duplicateHandle.style.display = 'none';
+        return;
+      }
+      duplicateAtomModelFromNucleus(nucleus);
+      selectElement(nucleus);
+    });
+
+    rotateHandle.addEventListener('click', () => {
+      const nucleusId = rotateHandle.dataset.nucleusId;
+      const nucleus = nucleusId ? findNucleusById(nucleusId) : null;
+      if (!nucleus) {
+        setFeedback('Drehbar sind nur vollständige Atommodelle.', 'error');
+        rotateHandle.style.display = 'none';
+        return;
+      }
+      rotateGroupByNucleus(nucleus, 90);
+      selectElement(nucleus);
+      setFeedback('Atommodell um 90° gedreht.', 'success');
+    });
+    clearBtn.addEventListener('click', clearWorkspace);
+    newTaskBtn.addEventListener('click', createRandomTask);
+    checkTaskBtn.addEventListener('click', () => {
+      if (taskMode === 'molecule') checkMoleculeSolution();
+      else checkCurrentSolution();
+    });
+    newMoleculeTaskBtn.addEventListener('click', createRandomMoleculeTask);
+    
+    document.querySelectorAll('.palette-cloud').forEach((el) => {
+      el.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('application/x-cloud-color', el.dataset.color);
+      });
+      bindPaletteCloudTouch(el);
+    });
+
+    workspace.addEventListener('dragover', (event) => {
+      event.preventDefault();
+    });
+
+    workspace.addEventListener('drop', (event) => {
+      event.preventDefault();
+      const color = event.dataTransfer.getData('application/x-cloud-color');
+      const nucleusSymbol = event.dataTransfer.getData('application/x-nucleus') || event.dataTransfer.getData('text/plain');
+      handlePaletteDropAt(event.clientX, event.clientY, color, nucleusSymbol);
+    });
+
+    workspace.addEventListener('click', (event) => { if (event.target === workspace) selectElement(null); });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Delete' || event.key === 'Backspace') deleteSelected();
+    });
+
+    console.assert(typeof startGroupDrag === 'function', 'startGroupDrag fehlt');
+    console.assert(typeof createCloud === 'function', 'createCloud fehlt');
+    console.assert(typeof createNucleus === 'function', 'createNucleus fehlt');
+
+    renderNucleusPicker();
+    setMoleculeMode(false);
+    createRandomTask();
+
+function checkCurrentSolution() {
+  if (!currentTask) {
+    setFeedback("Keine Aufgabe gewählt.", "error");
+    return;
+  }
+
+  const connectedGroups = Array.from(groups.values())
+    .filter(group => group.nucleus && group.nucleus.isConnected);
+
+  if (connectedGroups.length !== 1) {
+    setFeedback("Es muss genau ein Atom gebaut werden.", "error");
+    return;
+  }
+
+  const group = connectedGroups[0];
+  const clouds = group.clouds.filter(c => c && c.isConnected);
+
+  const centerCloud = clouds.find(c => c.dataset.groupIndex === "0");
+
+  if (!centerCloud) {
+    setFeedback("Die Zentrumswolke fehlt.", "error");
+    return;
+  }
+
+  // Erwartete Zentrumswolke
+  let expectedCenter = "red";
+
+  if (currentTask.period === 3) expectedCenter = "green";
+  if (currentTask.period === 1) {
+    expectedCenter = currentTask.atomicNumber === 1 ? "blue" : "red";
+  }
+
+  if (centerCloud.dataset.color !== expectedCenter) {
+    setFeedback("Die Zentrumswolke ist falsch.", "error");
+    return;
+  }
+
+  // äußere Kugelwolken
+  const outerClouds = clouds
+    .filter(c => c.dataset.groupIndex !== "0")
+    .map(c => c.dataset.color)
+    .sort();
+
+  const valence = currentTask.group;
+
+  let expectedOuter = [];
+
+  const singles = Math.min(valence, 4);
+
+  for (let i = 0; i < singles; i++) {
+    expectedOuter.push("blue");
+  }
+
+  let remaining = valence - singles;
+
+  for (let i = 0; i < remaining; i++) {
+    expectedOuter[i] = "red";
+  }
+
+  expectedOuter.sort();
+
+  if (JSON.stringify(outerClouds) !== JSON.stringify(expectedOuter)) {
+    setFeedback("Die äußeren Kugelwolken stimmen nicht.", "error");
+    return;
+  }
+
+  setFeedback("Richtig! Das Atommodell stimmt.", "success");
+}
+
+  </script>
+</body>
+</html>
